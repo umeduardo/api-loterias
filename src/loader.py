@@ -9,20 +9,51 @@ import os
 import requests
 import re
 import time 
-from .produtos import Megasena, Lotofacil
+from .produtos import Product, Megasena, Lotofacil
 import unidecode
 
-class Loader():
-    
-    produtos: List = [Megasena]
 
-    base_url: str = 'http://loterias.caixa.gov.br/wps/portal/loterias/landing'
+class Loader():
+
+    """
+    Library to load all results of federal lottery of Brazil
+    
+    Found the chromedrive here:
+    https://chromedriver.chromium.org/downloads 
+
+    returns the return dataset containing all results
+    """
+    
+    produtos: List = [Megasena, Lotofacil]
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
     implicitly_wait: int = 5
     sleep_wait: int = 10
 
     @staticmethod
-    def load_data():
+    def sanitize_page_source(page_source: str) -> str:
+        """
+        sanitize the page source removing all unecessary data
+        """
+        page_source = re.sub(r"[\t\n]+"," ", unidecode.unidecode(page_source))
+        page_source = re.sub(r"\s\s+","", page_source)
+        page_source = page_source.replace('<tr bgcolor="#b5ffbd"><tr>','<tr>')
+        page_source = page_source.replace('<tr bgcolor="#b5ffbd"></tr><tr>','<tr>')
+        page_source = page_source.replace('<tr bgcolor="#FFFFFF"><tr>','<tr>')
+        page_source = page_source.replace('<tr bgcolor="#FFFFFF"></tr>','')
+        page_source = page_source.replace('<tbody>','')
+        page_source = page_source.replace('</tbody>','')
+        page_source = page_source.replace('nmeros','numeros')
+        page_source = page_source.replace('<th ','<td ')
+        page_source = page_source.replace('</th>','</td>')
+        page_source = page_source.replace('ú','</td>')
+        page_source = page_source.replace('<td>CANAL ELETRONICO </td> <td>--</td> </tr><tr> ','')
+        page_source = re.sub(r'<table><!-- LINHA DA CIDADE-->([^!]+)!-- FIM LINHA CIDADE--></table>',"</td>", page_source)
+
+        return page_source
+
+    @staticmethod
+    def load_data() -> List:
 
         chrome_options = Options()
         #chrome_options.add_argument("--headless") 
@@ -33,12 +64,11 @@ class Loader():
         url_arquivos: Dict[str, str] = {}
         response_server: bytes = b''
         
-        base_url: str = Loader.base_url
         dataset = {}
 
         for produto in Loader.produtos:
 
-            browser.get(f"{base_url}/{produto.slug}")
+            browser.get(Product.get_url(produto))
             browser.implicitly_wait(Loader.implicitly_wait)
             wait = WebDriverWait(browser, 20)
             
@@ -51,25 +81,12 @@ class Loader():
             browser.switch_to.window(browser.window_handles[-1])
             wait.until(EC.title_contains('Resultado'))
             
-            page_source: str = re.sub(r"[\t\n]+"," ", unidecode.unidecode(browser.page_source))
-            page_source = re.sub(r"\s\s+","", page_source)
-            page_source = page_source.replace('<tr bgcolor="#b5ffbd"><tr>','<tr>')
-            page_source = page_source.replace('<tr bgcolor="#b5ffbd"></tr><tr>','<tr>')
-            page_source = page_source.replace('<tr bgcolor="#FFFFFF"><tr>','<tr>')
-            page_source = page_source.replace('<tr bgcolor="#FFFFFF"></tr>','')
-            page_source = page_source.replace('<tbody>','')
-            page_source = page_source.replace('</tbody>','')
-            page_source = page_source.replace('nmeros','numeros')
-            page_source = page_source.replace('<th ','<td ')
-            page_source = page_source.replace('</th>','</td>')
-            page_source = page_source.replace('ú','</td>')
-            page_source = page_source.replace('<td>CANAL ELETRONICO </td> <td>--</td> </tr><tr> ','')
-            page_source = re.sub(r'<table><!-- LINHA DA CIDADE-->([^!]+)!-- FIM LINHA CIDADE--></table>',"</td>", page_source)
+            page_source = Loader.sanitize_page_source(browser.page_source)
 
             soup: BeautifulSoup = BeautifulSoup(page_source, 'html.parser')
 
-            datalist: List[Dict] = [] #empty list
-            counter: int = 0 #counter
+            datalist: List[Dict] = [] 
+            counter: int = 0
             fields: List = []
             table = soup.find('table')
             

@@ -8,10 +8,15 @@ class Product(ABC):
     campo: str
     dados: Dict
     quantidade_numeros: int
+    _url = 'http://loterias.caixa.gov.br/wps/portal/loterias/landing'
 
     def __init__(self, dados):
         self.dados = dados
-    
+
+    @staticmethod
+    def get_url(projeto):
+        return projeto._url + '/' + projeto.slug
+
     def get_resultado(self) -> List:
         resultado: List = []
         for num in range(self.bolas[0], self.bolas[1]+1):
@@ -39,7 +44,7 @@ class Product(ABC):
             if slug_produto == Produto.slug:
                 return Produto
 
-        raise Exception(f'O Produto {slug_produto} não foi encontrato')
+        raise ValueError(f'O Produto {slug_produto} não foi encontrato')
 
 class Lotofacil(Product):
     
