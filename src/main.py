@@ -14,6 +14,23 @@ def seleciona_produto(slug_produto):
             produto_selecionado = produto
     return produto_selecionado
 
+
+@app.route('/')
+def index():
+    return jsonify({
+        'doc': 'Documentacao dp Loterias API',
+        'produtos': ['megsaena', 'lotofacil'],
+        'endpoints': [
+            {
+                '/': 'This document.',
+                '/api/resultados/<produto>': 'Todos os resultados de um produto',
+                '/api/resultados/<produto>/data/<data>': 'Resultados de um produto por data. Formato: ddmmaaa',
+                '/api/resultados/<produto>/concurso/<concurso>': 'Resultados de um produto por concurso.',
+                '/api/estatistica/<produto>': 'Gerador jogos.',
+            }
+        ]
+    })
+
 @app.route("/api/estatistica/<produto>", methods=('GET',))
 def estatistica(produto) -> Union[Response, Tuple]:
 
@@ -52,17 +69,19 @@ def sorteios(produto, date=None, concurso=None) -> Union[Response, Tuple]:
 
     database_produto: List = database[produto_selecionado.slug]
     result: List = []
-    
     if date:
         for resultado in database_produto:
             p = produto_selecionado(resultado)
-            if p['data_sorteio'].replace('/', '') == str(date):
-                result = [p.get_object()]
+            obj = p.get_object()
+            print(obj['data_sorteio'].replace('/', ''))
+            if obj['data_sorteio'].replace('/', '') == str(date):
+                result = [obj]
     if concurso:
         for resultado in database_produto:
-            if p['concurso'] == str(concurso):
-                p = produto_selecionado(resultado)
-                result = [p.get_object()]
+            p = produto_selecionado(resultado)
+            obj = p.get_object()
+            if obj['concurso'] == str(concurso):
+                result = [obj]
     else:
         for resultado in database_produto:
             p = produto_selecionado(resultado)
