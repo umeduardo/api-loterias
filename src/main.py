@@ -1,19 +1,12 @@
 from flask import Flask, Response, jsonify
 from typing import Dict, List, Union, Tuple
 from .loader import Loader
+from .produtos import Product
 
 app = Flask(__name__)
 app.config.update(debug=True)
 
 database = Loader.load_data()
-
-def seleciona_produto(slug_produto):
-    produto_selecionado = None
-    for produto in Loader.produtos:
-        if slug_produto == produto.slug:
-            produto_selecionado = produto
-    return produto_selecionado
-
 
 @app.route('/')
 def index():
@@ -26,7 +19,7 @@ def index():
                 '/api/resultados/<produto>': 'Todos os resultados de um produto',
                 '/api/resultados/<produto>/data/<data>': 'Resultados de um produto por data. Formato: ddmmaaa',
                 '/api/resultados/<produto>/concurso/<concurso>': 'Resultados de um produto por concurso.',
-                '/api/estatistica/<produto>': 'Gerador jogos.',
+                '/api/estatistica/<produto>': 'Estatística de saída de cada número por produto.',
             }
         ]
     })
@@ -63,9 +56,10 @@ def estatistica(produto) -> Union[Response, Tuple]:
 @app.route('/api/resultados/<produto>/concurso/<concurso>', methods=['GET'])
 def sorteios(produto, date=None, concurso=None) -> Union[Response, Tuple]:
     
-    produto_selecionado = seleciona_produto(produto)
-    if produto_selecionado is None:
-        return jsonify(['Produto não encontrado']), 404
+    try:
+        produto_selecionado = Product.create(produto, Loader.produtos)
+    except Exception as e:
+        return jsonify(str(e)), 404
 
     database_produto: List = database[produto_selecionado.slug]
     result: List = []
@@ -76,7 +70,7 @@ def sorteios(produto, date=None, concurso=None) -> Union[Response, Tuple]:
             print(obj['data_sorteio'].replace('/', ''))
             if obj['data_sorteio'].replace('/', '') == str(date):
                 result = [obj]
-    if concurso:
+    elif concurso:
         for resultado in database_produto:
             p = produto_selecionado(resultado)
             obj = p.get_object()
@@ -94,9 +88,10 @@ def sorteios(produto, date=None, concurso=None) -> Union[Response, Tuple]:
 @app.route("/api/sorteios/<produto>/concurso/<concurso>", methods=('GET',))
 def resultado(produto, concurso=None) -> Union[Response, Tuple]:
 
-    produto_selecionado = seleciona_produto(produto)
-    if produto_selecionado is None:
-        return jsonify(['Produto não encontrado']), 404
+    try:
+        produto_selecionado = Product.create(produto, Loader.produtos)
+    except Exception as e:
+        return jsonify(str(e)), 404
 
     result: List = []
     resultados_produto: Dict = database[produto]
