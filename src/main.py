@@ -27,9 +27,10 @@ def index():
 @app.route("/api/estatistica/<produto>", methods=('GET',))
 def estatistica(produto) -> Union[Response, Tuple]:
 
-    produto_selecionado = seleciona_produto(produto)
-    if produto_selecionado is None:
-        return jsonify(['Produto não encontrado']), 404
+    try:
+        produto_selecionado = Product.create(produto, Loader.produtos)
+    except Exception as e:
+        return jsonify(str(e)), 404
 
     resultados_produto: List = database[produto]
 
